@@ -58,6 +58,9 @@
 // macro to access the current thread id
 #define x_getID()	(x_thread_id)   //x_thread_id is a global declared in acx.c
 
+// macro to access the global timer
+#define x_gtime()	(global_timer)   
+
 //---------------------------------------------------------------------------
 // PTHREAD is a type that represents how threads are called--
 // It is just a pointer to a function returning void
@@ -111,9 +114,11 @@ void saveCalleeRegisters(uint8_t*);
 void loadCalleeRegisters(uint8_t*);
 void testThread(void);
 void restore(void);
+void testDisable(void);
+void testSuspend(void);
 void testThread0(void);
 void testThread1(void);
-
+void testGlobalTimer(void);
 #endif
 
 

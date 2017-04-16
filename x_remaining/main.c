@@ -24,7 +24,7 @@ uint16_t delay = 0x00;
 uint8_t x_thread_id = 0; //current thread
 uint16_t x_thread_mask = 0x01;  //bit 0 set corresponds to thread 0
 
-int global_timer = 0;
+unsigned long global_timer = 0;
 
 int stackSizes[8] = {STACK_SIZE0,STACK_SIZE1,STACK_SIZE2,STACK_SIZE3,STACK_SIZE4,STACK_SIZE5,STACK_SIZE6,STACK_SIZE7};
 int offsets[8] = {STACK_OFFSET0,STACK_OFFSET1,STACK_OFFSET2,STACK_OFFSET3,STACK_OFFSET4,STACK_OFFSET5,STACK_OFFSET6,STACK_OFFSET7};
@@ -129,19 +129,75 @@ int main(void)
 	x_init();
 	x_new(1, testThread1, true);  // create thread, ID=1
 	x_new(0, testThread0, true);  // replace current thread
+	//x_new(0, testDisable, true);  
+	//x_new(0, testSuspend, true);  
+	//x_new(0, testGlobalTimer, true);
 	while(1){
-		x_yield();
 	}
 }
 //------------------------
 // A test thread
 //------------------------
-void testThread0(void)
+void testDisable(void)
 {
 	DDRF = 0xC0;
+	volatile int i = 0;
+	int count = 0;
 	while(1){
 		PORTF ^= 0x80;
-		x_delay(1500);
+		x_delay(500);
+		if(count == 10){
+			x_disable(1);
+		}
+		if(count == 30){
+			x_enable(1);
+		}
+		count++;
+	}
+}
+
+void testSuspend(void)
+{
+	DDRF = 0xC0;
+	volatile int i = 0;
+	int count = 0;
+	while(1){
+		PORTF ^= 0x80;
+		x_delay(500);
+		if(count == 10){
+			x_suspend(1);
+		}
+		if(count == 30){
+			x_resume(1);
+		}
+		count++;
+	}
+}
+
+void testThread0(){
+
+	DDRF = 0xC0;
+	volatile int i = 0;
+	while(1){
+		PORTF ^= 0x80;
+		x_delay(500);
+	}
+}
+
+void testGlobalTimer(){
+	DDRF = 0xC0;
+	volatile int i = 0;
+	while(1){
+		PORTF ^= 0x80;
+		if(i > 3 && x_gtime() > 0)
+		{
+			x_delay(300);
+		}
+		else
+		{
+			x_delay(1500);
+		}
+		i++;
 	}
 }
 
@@ -150,7 +206,7 @@ void testThread1(void)
 	DDRF = 0xC0;
 	while(1){	
 		PORTF ^= 0x40;
-		x_delay(500);
+		x_delay(1500);
 	}
 }
 
@@ -178,11 +234,6 @@ void x_delay(unsigned int x)
 	{
 		access to variable
 	}*/
-}
-
-unsigned long x_gtime()
-{
-	return 0;
 }
 
 /**When called, x_new initializes the stack of the specified thread by copying the function pointer onto its stack (as if it were a return address).
@@ -309,7 +360,10 @@ to zero, thus removing the delay blocking condition from that thread.
 This will ideally be less than 160 clock cycles*/
 ISR(TIMER0_COMPA_vect)
 {
-		
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+	{
+		global_timer++;
+	}	
 	for(int i = 0; i < NUM_THREADS; i++)
 	{
 		if(x_thread_delay[i] != 0)
@@ -318,8 +372,9 @@ ISR(TIMER0_COMPA_vect)
 			if(x_thread_delay[i] == 0)
 			{
 				uint8_t newMask = ~(1 << i);
-				ATOMIC_BLOCK(ATOMIC_RESTORESTATE){
-				delay = delay & newMask;
+				ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+				{
+					delay = delay & newMask;
 				}
 			}
 		}
