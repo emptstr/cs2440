@@ -56,7 +56,7 @@
 
 
 // macro to access the current thread id
-#define x_getTID()	(x_thread_id)   //x_thread_id is a global declared in acx.c
+#define x_getID()	(x_thread_id)   //x_thread_id is a global declared in acx.c
 
 //---------------------------------------------------------------------------
 // PTHREAD is a type that represents how threads are called--

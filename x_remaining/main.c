@@ -127,7 +127,6 @@ int main(void)
 {
 	volatile int j = 0;
 	x_init();
-
 	x_new(1, testThread1, true);  // create thread, ID=1
 	x_new(0, testThread0, true);  // replace current thread
 	while(1){
@@ -151,7 +150,7 @@ void testThread1(void)
 	DDRF = 0xC0;
 	while(1){	
 		PORTF ^= 0x40;
-		x_delay(1000);
+		x_delay(500);
 	}
 }
 
@@ -230,25 +229,56 @@ void x_new(byte threadID, PTHREAD newthread, byte isEnabled)
 		 fact just an alternate entry point into the x_yield function).*/
 	}
 }
-
+//suspend the specified thread by setting its "suspend" status bit.
 void x_suspend(uint8_t x)
 {
-	
+	uint8_t temp = SREG;   // save SREG --holds global interrupt enable bit
+	cli();  // disable interrupts
+	//do the atomic access
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		// do atomic access
+		suspend = suspend | (1 << x);
+	}
+	SREG = temp;   // restore interrupt state
 }
 
+//resume the specified thread by clearing its "suspend" status bit.
 void x_resume(uint8_t x)
 {
-	
+	uint8_t temp = SREG;   // save SREG --holds global interrupt enable bit
+	cli();  // disable interrupts
+	//do the atomic access
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		// do atomic access
+		suspend = suspend & ~(1 << x);
+	}
+	SREG = temp;   // restore interrupt state
 }
 
+//disable the specified thread by setting its "disable" status bit.
 void x_disable(uint8_t x)
 {
-
+	uint8_t temp = SREG;   // save SREG --holds global interrupt enable bit
+	cli();  // disable interrupts
+	//do the atomic access
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		// do atomic access
+		 disable = disable | (1 << x);
+	}
+	SREG = temp;   // restore interrupt state
 }
 
+//enable the specified thread by clearing its "disable" status bit.
 void x_enable(uint8_t x)
 {
-	
+	uint8_t temp = SREG;   // save SREG --holds global interrupt enable bit
+	cli();  // disable interrupts
+	//do the atomic access
+	ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+		// do atomic access
+		disable = disable & ~(1 << x);
+	}
+	SREG = temp;   // restore interrupt state
 }
 
 void changeStack(uint8_t * stackPointer, uint8_t * newStackBase, int num_bytes)
@@ -260,51 +290,17 @@ void changeStack(uint8_t * stackPointer, uint8_t * newStackBase, int num_bytes)
 	{
 		current = current + 1;
 		buff[i] = (*current);
-		//current = current + 1;
 	}
 	
 	current = newStackBase;
 	
-	for(int i = (num_bytes -1); i >= 0; i--){
-		
+	for(int i = (num_bytes -1); i >= 0; i--)
+	{	
 		(*current) = buff[i];
 		current = current - 1;
 	}
 }
 
-typedef struct
-{
-	volatile uint8_t uscrA;
-	volatile uint8_t uscrB;
-	volatile uint8_t uscrC;
-	volatile uint8_t reserved;
-	volatile uint16_t ubrr;
-	volatile uint8_t udr;
-} SERIAL_REGS;
-SERIAL_REGS* serial_ports[] =
-{
-	(SERIAL_REGS *)(0XC0),
-	(SERIAL_REGS *)(0XC8),
-	(SERIAL_REGS *)(0XD0),
-	(SERIAL_REGS *)(0X130)
-};
-//Takes input parameters for 'port', 'speed' (baud rate) and 'framing' (frame parameters: number of data bits, parity, number
-//of stop bits) in various combinations to configure the 2560 for communication using the specified serial port (0,1, 2, or 3)
-void PSerial_open(unsigned char port, long speed, int config)
-{
-	serial_ports[port]->uscrA = 0x20;
-	serial_ports[port]->uscrB = 0x18;
-	serial_ports[port]->uscrC = config;
-	serial_ports[port]->ubrr = speed;
-}
-//Waits for the write buffer to be available, then writes a byte value to the buffer. This function does not return anything.
-void PSerial_write(unsigned char port, char data)
-{
-	while(!((serial_ports[port]->uscrA) & 0x20))
-	{
-	}
-	serial_ports[port]->udr = data;
-}
 
 /**When a Timer0 interrupt occurs, the Timer0 interrupt handler should check each thread delay counter. If a counter is non-zero, 
 it should be decremented. If the resulting count becomes zero, the x_delay_status bit corresponding to that thread should be cleared 
@@ -354,3 +350,4 @@ void x_schedule()
 		
 	} while (true);
 }
+
