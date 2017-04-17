@@ -5,9 +5,11 @@
  * Author : Matt
  */ 
 
+#include <time.h>
 #include <avr/io.h>
 #include <stdio.h>
 #include <util/delay.h>
+
 
 #define Button1Pressed(PIN) !(PIN & 0x80)
 #define Button1Released(PIN) (PIN & 0x80)
@@ -26,6 +28,8 @@ void delayCheck(int* button, int delay);
 int state[3][2] = {{1, 2}, {0, 2}, {1, 0}};
 static int currState = 0;
 static int shouldBreak = 0;
+
+static clock_t CLOCKS_PER_MILLI = 0;
 	
 int main(void)
 {
@@ -38,7 +42,7 @@ int main(void)
     while (1) 
     {
 		int buttonPress = buttonPressed(&button);
-		if(shouldBreak || buttonPressed)
+		if(shouldBreak || buttonPress)
 		{
 			currState = state[currState][button];
 			shouldBreak = 0;
@@ -154,44 +158,37 @@ void flashing(int *button)
 
 void waitForPress(int* button, int delay)
 {
-	while(1){
-		if(Button1Pressed(PINF)){
-			while (1)
+    static long CYCLES_IN_MILLI = 16000;
+	static long CYCLES_IN_OUTER = 44;
+	static long CYCLES_IN_INNER = 36;
+	
+	long cycles_to_delay = delay * CYCLES_IN_MILLI; // 31 Cycles
+	long num_cycles = 39; //includes the 8 cycles used to initialize this variable and the 31 above
+	
+	while(num_cycles < cycles_to_delay){//OUTER 2 cycles
+		if(Button1Pressed(PINF)){// OUTER 8 cycles
+			while (num_cycles < cycles_to_delay) // INNER 2 cycles
 			{
-				if(Button1Released(PINF)){
+				if(Button1Released(PINF)){// INNER 8 cycles
 					*button = 0;
 					return;
 				}
+				num_cycles += CYCLES_IN_INNER;//INNER 26 cycles
 			}
-		}else if(Button2Pressed(PINF)){
-			while(1){
-				if(Button2Released(PINF)){
+		}else if(Button2Pressed(PINF)){// OUTER 8 cycles 
+			while(num_cycles < cycles_to_delay){// INNER 2 cycles
+				if(Button2Released(PINF)){// INNER 8 cycles
 					*button = 1;
 					return;
 				}
+				num_cycles += CYCLES_IN_INNER;// INNER 26 cycles
 			}
 		}
+		num_cycles + CYCLES_IN_OUTER;// OUTER 26 cycles
 	}
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 void delayCheck(int* button, int delay)
 {
-	int i = 0;
-	for(i = 0; i < delay; i++)
-	{
 		waitForPress(button, delay);
-	}
 }
