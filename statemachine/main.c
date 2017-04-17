@@ -3,30 +3,25 @@
  *
  * Created: 2/19/2017 1:48:34 PM
  * Author : Matt
- */ 
+ */
 
 #include <avr/io.h>
 #include <stdio.h>
 #include <util/delay.h>
 
-#define Button1Pressed(PIN) !(PIN & 0x80)
-#define Button1Released(PIN) (PIN & 0x80)
-#define Button2Pressed(PIN) !(PIN & 0x40)
-#define Button2Released(PIN) (PIN & 0x40)
-
 void blink(int ms);
 int button1Pressed();
 int button2Pressed();
 int buttonPressed(int* button);
-void flashing();
-void rotate();
+void flashing(int* button);
+void rotate(int* button);
 void partialDelay(int* button, int delay);
 void delayCheck(int* button, int delay);
 
 int state[3][2] = {{1, 2}, {0, 2}, {1, 0}};
 static int currState = 0;
 static int shouldBreak = 0;
-	
+
 int main(void)
 {
     /* Replace with your application code */
@@ -35,10 +30,10 @@ int main(void)
 	int button = 0;
 	DDRB = 0x80;
 	_delay_ms(1000);
-    while (1) 
+    while (1)
     {
 		int buttonPress = buttonPressed(&button);
-		if(shouldBreak || buttonPressed)
+		if(shouldBreak || buttonPress)
 		{
 			currState = state[currState][button];
 			shouldBreak = 0;
@@ -64,7 +59,7 @@ int buttonPressed(int* button)
 {
 	while((!button1Pressed())&&(!button2Pressed()))
 	{
-		
+
 	}
 	if(button1Pressed())
 	{
@@ -117,7 +112,7 @@ void rotate(int *button)
 			blink(1);
 			PORTF ^= 1 << i;
 			//_delay_ms(500);
-			delayCheck(button, 470);	
+			delayCheck(button, 470);
 			if(shouldBreak)
 			{
 				PORTF &= 0xC0;
@@ -152,46 +147,38 @@ void flashing(int *button)
 	}
 }
 
-void waitForPress(int* button, int delay)
+void partialDelay(int* button, int delay)
 {
-	while(1){
-		if(Button1Pressed(PINF)){
-			while (1)
+	int pressed = 0;
+	for(int i = 0; i < delay; i++)
+	{
+		if((!(PINF & 0x80) || !(PINF & 0x40)) && !pressed)
+		{
+			pressed = 1;
+		}
+		if(pressed)
+		{
+			if(PINF & 0x80)
 			{
-				if(Button1Released(PINF)){
-					*button = 0;
-					return;
-				}
+				*button = 0;
+				shouldBreak = 1;
+				return;
 			}
-		}else if(Button2Pressed(PINF)){
-			while(1){
-				if(Button2Released(PINF)){
-					*button = 1;
-					return;
-				}
+			if(PINF & 0x40)
+			{
+				*button = 1;
+				shouldBreak = 1;
+				return;
 			}
 		}
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void delayCheck(int* button, int delay)
 {
 	int i = 0;
 	for(i = 0; i < delay; i++)
 	{
-		waitForPress(button, delay);
+		partialDelay(button, delay);
 	}
 }
