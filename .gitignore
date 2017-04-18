@@ -1,4 +1,7 @@
-**/*.eep
-**/*.srec
-**/*.map
-**/*.lss
+*.eep
+*.srec
+*.map
+*.lss
+*.elf
+*.o
+*.hex
